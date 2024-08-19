@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +23,11 @@ import (
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
+type transcriptionJSONBody struct {
+	Transcription string    `json:"transcription"`
+	Language      string    `json:"language"`
+}
+
 // log is a global logger instance used for logging throughout the application.
 var log waLog.Logger
 
@@ -29,12 +38,15 @@ var quitter = make(chan struct{})
 var messageHead = flag.String("message-head", "Transcript:\n> ", "Text to start message with")
 
 func main() {
+	fmt.Println("Starting main function")
+
 	// Initialize database logger with DEBUG level logging to stdout.
 	log = waLog.Stdout("Database", "DEBUG", true)
 
 	// Create a new SQL store container using SQLite3.
 	container, err := sqlstore.New("sqlite3", "file:whatsmeow.db?_foreign_keys=on", log)
 	if err != nil {
+		fmt.Println("Error creating SQL store container:", err)
 		panic(err)
 	}
 
@@ -87,18 +99,19 @@ func main() {
 
 	// Disconnect the client gracefully on termination.
 	client.Disconnect()
+	fmt.Println("Client disconnected")
 }
 
 /*
- GetEventHandler returns a function that handles various WhatsApp events.
- 
- It takes a WhatsApp client as an argument and returns a function that processes
- events based on their type.
- 
- The returned function handles the following events:
- - StreamReplaced and Disconnected: Logs the event and closes the quitter channel.
- - Message: Processes audio messages, downloads the audio, and sends a transcription
-   if the audio is a PTT (Push-To-Talk) message.
+GetEventHandler returns a function that handles various WhatsApp events.
+
+It takes a WhatsApp client as an argument and returns a function that processes
+events based on their type.
+
+The returned function handles the following events:
+  - StreamReplaced and Disconnected: Logs the event and closes the quitter channel.
+  - Message: Processes audio messages, downloads the audio, and sends a transcription
+    if the audio is a PTT (Push-To-Talk) message.
 */
 func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 	return func(evt interface{}) {
@@ -112,6 +125,8 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 			am := v.Message.GetAudioMessage()
 
 			if am != nil {
+				fmt.Println("Audio message received")
+
 				// Download the audio data.
 				audioData, err := client.Download(am)
 				if err != nil {
@@ -125,15 +140,21 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 
 				if am.GetPTT() {
 					// Get the transcription of the audio data.
-					maybeText := getTranscription(audioData) // TODO: Implement function
+					maybeText := getTranscription(audioData)
 
 					if maybeText != nil {
+						fmt.Println("Transcription received")
+
 						text := *maybeText
 
 						// Create a new message with the transcription.
 						msg := &waProto.Message{
+							// Create an extended text message with the transcription.
 							ExtendedTextMessage: &waProto.ExtendedTextMessage{
+								// Set the text of the message.
 								Text: proto.String(*messageHead + text),
+
+								// Set the context info of the message.
 								ContextInfo: &waProto.ContextInfo{
 									StanzaID:      proto.String(v.Info.ID),
 									Participant:   proto.String(v.Info.Sender.ToNonAD().String()),
@@ -143,7 +164,14 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 						}
 
 						// Send the message.
-						_, _ = client.SendMessage(context.Background(), v.Info.MessageSource.Chat, msg)
+						_, err := client.SendMessage(context.Background(), v.Info.MessageSource.Chat, msg)
+						if err != nil {
+							fmt.Println("Error sending message:", err)
+						} else {
+							fmt.Println("Message sent successfully")
+						}
+					} else {
+						fmt.Println("Transcription is nil")
 					}
 				}
 			}
@@ -151,9 +179,51 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 	}
 }
 
-// TODO: Implement this function to get transcription from audio data
-func getTranscription(audioDate []byte) *string {
-	responseBody := "Transcribe to Whisper"
+func getTranscription(audioData []byte) *string {
+	fmt.Println("Starting transcription request")
 
-	return &responseBody
+	// Create a new POST request with the audio data as the body.
+	req, err := http.NewRequest("POST", "http://127.0.0.1:5000/transcribe", bytes.NewReader(audioData))
+	if err != nil {
+		// Log an error and return nil if the request creation fails.
+		log.Errorf("Failed to create request: %v", err)
+		return nil
+	}
+
+	fmt.Println("Request created")
+
+	// Set the Content-Type header to indicate binary data.
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	// Send the request using the default HTTP client.
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Errorf("Failed to send request: %v", err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("Request sent, awaiting response")
+
+	// Read the response body.
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		// Log an error and return nil if reading the response body fails.
+		log.Errorf("Failed to read response body: %v", err)
+		return nil
+	}
+
+	fmt.Println("Response received")
+
+	var jsonBody transcriptionJSONBody
+	err = json.Unmarshal(body, &jsonBody)
+	if err != nil {
+		return nil
+	}
+
+	// Convert the response body to a string and return it.
+	transcription := jsonBody.Transcription
+	fmt.Println("Transcription:", transcription)
+
+	return &transcription
 }
