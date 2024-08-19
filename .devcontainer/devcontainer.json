@@ -20,16 +20,9 @@
             ]
         }
     },
-    "forwardPorts": [
-        5000,
-        5001
-    ],
+    "forwardPorts": [5000],
     "portsAttributes": {
         "5000": {
-            "label": "Golang Chi Server",
-            "onAutoForward": "notify"
-        },
-        "5001": {
             "label": "Python Flask Server",
             "onAutoForward": "notify"
         }
