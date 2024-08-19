@@ -1,0 +1,39 @@
+{
+    "name": "WhatsApp VN Dev Container",
+    "image": "mcr.microsoft.com/devcontainers/go:1.22",
+    "features": {
+        "ghcr.io/devcontainers/features/python:1": {
+            "version": "3.12"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.go",
+                "ms-python.python",
+                "ms-vsliveshare.vsliveshare",
+                "VisualStudioExptTeam.vscodeintellicode",
+                "eamodio.gitlens",
+                "GitHub.copilot",
+                "usernamehw.errorlens",
+                "aaron-bond.better-comments"
+            ]
+        }
+    },
+    "forwardPorts": [
+        5000,
+        5001
+    ],
+    "portsAttributes": {
+        "5000": {
+            "label": "Golang Chi Server",
+            "onAutoForward": "notify"
+        },
+        "5001": {
+            "label": "Python Flask Server",
+            "onAutoForward": "notify"
+        }
+    },
+    "postCreateCommand": "go mod tidy",
+    "postStartCommand": "pip install -r requirements.txt"
+}
