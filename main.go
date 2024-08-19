@@ -15,7 +15,6 @@ import (
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
-	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
@@ -82,51 +81,6 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 			log.Infof("Got %+v, Terminating", evt)
 			close(quitter)
 		case *events.Message:
-			if v == nil || v.Info == (types.MessageInfo{}) {
-				log.Warnf("Received nil message or nil message info: %+v", v)
-				return
-			}
-
-			metaParts := []string{fmt.Sprintf("pushname: %s", v.Info.PushName), fmt.Sprintf("timestamp: %s", v.Info.Timestamp)}
-
-			if v.Info.Type != "" {
-				metaParts = append(metaParts, fmt.Sprintf("type: %s", v.Info.Type))
-			}
-
-			if v.Info.Category != "" {
-				metaParts = append(metaParts, fmt.Sprintf("category: %s", v.Info.Category))
-			}
-
-			if v.IsViewOnce {
-				metaParts = append(metaParts, "view once")
-			}
-
-			if v.IsViewOnce {
-				metaParts = append(metaParts, "ephemeral")
-			}
-
-			if v.IsViewOnceV2 {
-				metaParts = append(metaParts, "ephemeral (v2)")
-			}
-
-			if v.IsDocumentWithCaption {
-				metaParts = append(metaParts, "document with caption")
-			}
-
-			// if v.IsEdit {
-			// 	metaParts = append(metaParts, "edit")
-			// }
-
-			// if v.Info != (types.MessageInfo{}) {
-			// 	if v.Info.ID != "" && v.Info.SourceString() != "" {
-			// 		log.Infof("Received message %s from %s (%s)", v.Info.ID, v.Info.SourceString(), strings.Join(metaParts, ", "))
-			// 	} else {
-			// 		log.Warnf("Received message with incomplete info: %+v", v.Info)
-			// 	}
-			// } else {
-			// 	log.Warnf("Received message with nil info: %+v", v)
-			// }
-
 			am := v.Message.GetAudioMessage()
 
 			if am != nil {
@@ -135,6 +89,8 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 					log.Errorf("Failed to download audio: %v", err)
 					return
 				}
+
+				fmt.Printf("The user name is: %s\n", v.Info.Sender.User)
 
 				if am.GetPTT() {
 					maybeText := getTranscription(audioData) //TODO: Implement function
@@ -161,7 +117,7 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 	}
 }
 
-//TODO: Implement this function to get transcription from audio data
+// TODO: Implement this function to get transcription from audio data
 func getTranscription(audioDate []byte) *string {
 	responseBody := "Transcribe to Whisper"
 
