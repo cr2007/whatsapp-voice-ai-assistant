@@ -1,0 +1,31 @@
+{
+    "workbench.colorTheme": "Default Dark Modern",
+    "workbench.iconTheme": "vscode-icons",
+    "editor.stickyScroll.enabled": true,
+    "editor.bracketPairColorization.enabled": true,
+    "editor.indentSize": "tabSize",
+    "editor.tabSize": 4,
+    "editor.renderWhitespace": "all",
+    "editor.inlayHints.enabled": "onUnlessPressed",
+    "editor.wordWrap": "on",
+    "files.trimTrailingWhitespace": true,
+    "git.autofetch": true,
+    "[python]": {
+        "editor.rulers": [
+            100
+        ]
+    },
+    "diffEditor.ignoreTrimWhitespace": false,
+    "diffEditor.hideUnchangedRegions.enabled": true,
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.inlayHints.callArgumentNames": "all",
+    "accessibility.signals.terminalCommandFailed": {
+        "sound": "on"
+    },
+    "accessibility.signals.save": {
+        "sound": "userGesture"
+    },
+    "accessibility.signals.format": {
+        "sound": "userGesture"
+    },
+}
