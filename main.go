@@ -30,10 +30,10 @@ var messageHead = flag.String("message-head", "Transcript:\n> ", "Text to start 
 
 func main() {
 	// Initialize database logger with DEBUG level logging to stdout.
-	dbLog := waLog.Stdout("Database", "DEBUG", true)
+	log = waLog.Stdout("Database", "DEBUG", true)
 
 	// Create a new SQL store container using SQLite3.
-	container, err := sqlstore.New("sqlite3", "file:whatsmeow.db?_foreign_keys=on", dbLog)
+	container, err := sqlstore.New("sqlite3", "file:whatsmeow.db?_foreign_keys=on", log)
 	if err != nil {
 		panic(err)
 	}
