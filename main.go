@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"go.mau.fi/whatsmeow"
-	waProto "go.mau.fi/whatsmeow/binary/proto"
+	waProto "go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -142,12 +142,9 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 					if maybeText != nil {
 						text := *maybeText
 
-						//! Deprecated, need to refer to waE2E.Message
 						msg := &waProto.Message{
-							//! Deprecated, need to refer to waE2E.ExtendedTextMessage
 							ExtendedTextMessage: &waProto.ExtendedTextMessage{
 								Text: proto.String(*messageHead + text),
-								//!
 								ContextInfo: &waProto.ContextInfo{
 									StanzaID:      proto.String(v.Info.ID),
 									Participant:   proto.String(v.Info.Sender.ToNonAD().String()),
