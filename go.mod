@@ -4,6 +4,7 @@ go 1.22.5
 
 require (
 	github.com/go-chi/chi/v5 v5.1.0
+	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/mdp/qrterminal/v3 v3.2.0
 	go.mau.fi/whatsmeow v0.0.0-20240816195430-66c6524b93ad
