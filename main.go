@@ -12,6 +12,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/cr2007/whatsapp-whisper-groq/groq"
+
+	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal/v3"
 	"google.golang.org/protobuf/proto"
@@ -24,8 +27,8 @@ import (
 )
 
 type transcriptionJSONBody struct {
-	Transcription string    `json:"transcription"`
-	Language      string    `json:"language"`
+	Transcription string `json:"transcription"`
+	Language      string `json:"language"`
 }
 
 // log is a global logger instance used for logging throughout the application.
@@ -169,6 +172,12 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 							fmt.Println("Error sending message:", err)
 						} else {
 							fmt.Println("Message sent successfully")
+						}
+
+						if os.Getenv("GROQ_API_KEY") == "" {
+							fmt.Println("Groq API Key not found.\n Get your Groq API Key from https://console.groq.com to use this feature.")
+						} else {
+							groq.SendGroqMessage(client, text, v)
 						}
 					} else {
 						fmt.Println("Transcription is nil")
