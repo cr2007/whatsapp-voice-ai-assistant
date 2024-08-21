@@ -9,15 +9,6 @@ def transcribe_audio(audio_data, model_name="base", word_timestamps=True, verbos
 
 	result = {
 		"text": " ".join([segment.text for segment in segments]).strip(),
-		"segments": [
-			{
-				"start": segment.start,
-				"end": segment.end,
-				"text": segment.text,
-				"words": segment.words,
-			}
-			for segment in segments
-		],
 		"language": info.language,  # Add detected language to the result
 	}
 

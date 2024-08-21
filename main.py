@@ -20,7 +20,6 @@ def transcribe():
 	return jsonify({
 		"transcription": result["text"],
 		"language": result["language"],
-		"segments": result["segments"]
 	})
 
 if __name__ == '__main__':
