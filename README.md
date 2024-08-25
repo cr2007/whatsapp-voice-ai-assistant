@@ -13,7 +13,7 @@
     <a href="https://python.org/">
         <img alt="Python" title="Python Programming Language" src="https://img.shields.io/badge/Python-informational?style=flat&logo=python&logoColor=white&color=3776ab">
     </a>
-    <a href="https://go.dev">
+    <a href="https://www.whatsapp.com/">
         <img alt="WhatsApp" title="WhatsApp" src="https://img.shields.io/badge/WhatsApp-informational?style=flat&logo=WhatsApp&logoColor=white&color=25D366">
     </a>
     <a href="https://groq.com">
