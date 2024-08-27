@@ -15,10 +15,16 @@
             100
         ]
     },
+    "[go]": {
+        "editor.insertSpaces": true,
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "golang.go"
+    },
     "diffEditor.ignoreTrimWhitespace": false,
     "diffEditor.hideUnchangedRegions.enabled": true,
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.inlayHints.callArgumentNames": "all",
+    "go.inlayHints.parameterNames": true,
     "accessibility.signals.terminalCommandFailed": {
         "sound": "on"
     },
