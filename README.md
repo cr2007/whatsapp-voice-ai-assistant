@@ -94,6 +94,12 @@ source .venv/bin/activate
 .venv\Scripts\activate
 ```
 
+3. Install the required packages
+
+```shell
+pip install -r requirements.txt
+```
+
 ## Usage
 
 > [!NOTE]
