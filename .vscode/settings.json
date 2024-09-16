@@ -11,12 +11,9 @@
     "files.trimTrailingWhitespace": true,
     "git.autofetch": true,
     "[python]": {
-        "editor.rulers": [
-            100
-        ]
+        "editor.rulers": [100]
     },
     "[go]": {
-        "editor.insertSpaces": true,
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "golang.go"
     },
