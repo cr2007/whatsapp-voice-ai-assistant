@@ -7,6 +7,14 @@
         <img src="https://github.com/codespaces/badge.svg" />
     </a>
     <br>
+    <a href="https://groq.com" target="_blank" rel="noopener noreferrer">
+      <img
+        src="https://groq.com/wp-content/uploads/2024/03/PBG-mark1-color.svg"
+        alt="Powered by Groq for fast inference."
+        width=10%
+      />
+    </a>
+    <br>
     <a href="https://go.dev">
         <img alt="Go" title="Go Programming Language" src="https://img.shields.io/badge/Go-informational?style=flat&logo=go&logoColor=white&color=00add8">
     </a>
@@ -16,9 +24,8 @@
     <a href="https://www.whatsapp.com/">
         <img alt="WhatsApp" title="WhatsApp" src="https://img.shields.io/badge/WhatsApp-informational?style=flat&logo=WhatsApp&logoColor=white&color=25D366">
     </a>
-    <a href="https://groq.com">
-        <img alt="Groq" title="Groq" src="https://img.shields.io/badge/Groq-informational?style=flat&logo=groq&logoColor=white&color=F55036">
-    </a>
+
+
 </div>
 <br>
 
