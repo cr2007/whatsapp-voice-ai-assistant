@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "whatsapp-vn-groq"
+version = "0.1.0"
+description = "WhatsApp AI Chat Assistant with Voice Transcription"
+authors = ["CSK <73425927+cr2007@users.noreply.github.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+Flask = "^3.0.3"
+faster-whisper = "^1.0.3"
+
+[tool.poetry.group.dev.dependencies]
+python-dotenv = "^1.0.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
