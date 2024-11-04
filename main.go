@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/cr2007/whatsapp-whisper-groq/groq"
@@ -38,7 +39,7 @@ var log waLog.Logger
 var quitter = make(chan struct{})
 
 // messageHead is a command-line flag that specifies the text to start each message with.
-var messageHead = flag.String("message-head", "Transcript:\n> ", "Text to start message with")
+var messageHead = flag.String("message-head", "*Transcript:*\n> ", "Text to start message with")
 
 func main() {
 	fmt.Println("Starting main function")
@@ -124,63 +125,103 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 			log.Infof("Got %+v, Terminating", evt)
 			close(quitter)
 		case *events.Message:
-			// Get the audio message from the event.
-			am := v.Message.GetAudioMessage()
+			// var messageBody = v.Message.GetConversation()
+			var messageBody string
+			var quotedAudioMessage *waProto.AudioMessage
+			var contextInfo *waProto.ContextInfo
 
-			if am != nil {
-				fmt.Println("Audio message received")
+			if v.Message.GetConversation() != "" {
+				messageBody = v.Message.GetConversation()
+			} else if v.Message.ExtendedTextMessage != nil {
+				messageBody = v.Message.ExtendedTextMessage.GetText()
 
-				// Download the audio data.
-				audioData, err := client.Download(am)
-				if err != nil {
-					// Log an error if the download fails.
-					log.Errorf("Failed to download audio: %v", err)
-					return
+				if contextInfo := v.Message.ExtendedTextMessage.GetContextInfo(); contextInfo != nil {
+					if quotedMsg := contextInfo.QuotedMessage; quotedMsg != nil {
+						quotedAudioMessage = quotedMsg.GetAudioMessage()
+					}
 				}
+			}
 
-				// Print the sender's username.
-				fmt.Printf("The user name is: %s\n", v.Info.Sender.User)
+			if messageBody == "1> transcribe" || (strings.Contains(messageBody, "1>") && strings.Contains(messageBody, "transcribe")) {
 
-				if am.GetPTT() {
-					// Get the transcription of the audio data.
-					maybeText := getTranscription(audioData)
+				if quotedAudioMessage != nil {
+					fmt.Println("Audio message received")
 
-					if maybeText != nil {
-						fmt.Println("Transcription received")
+					// Send initial "Transcribing..." message
+					initialMsg := &waProto.Message{
+						// Create an extended text message with the transcription.
+						ExtendedTextMessage: &waProto.ExtendedTextMessage{
+							// Set the text of the message.
+							Text: proto.String("Transcribing..."),
 
-						text := *maybeText
-
-						// Create a new message with the transcription.
-						msg := &waProto.Message{
-							// Create an extended text message with the transcription.
-							ExtendedTextMessage: &waProto.ExtendedTextMessage{
-								// Set the text of the message.
-								Text: proto.String(*messageHead + text),
-
-								// Set the context info of the message.
-								ContextInfo: &waProto.ContextInfo{
-									StanzaID:      proto.String(v.Info.ID),
-									Participant:   proto.String(v.Info.Sender.ToNonAD().String()),
-									QuotedMessage: v.Message,
-								},
+							// Set the context info of the message.
+							ContextInfo: &waProto.ContextInfo{
+								StanzaID:      proto.String(contextInfo.GetStanzaID()),
+								Participant:   proto.String(contextInfo.GetParticipant()),
+								QuotedMessage: contextInfo.GetQuotedMessage(),
 							},
-						}
+						},
+					}
 
-						// Send the message.
-						_, err := client.SendMessage(context.Background(), v.Info.MessageSource.Chat, msg)
-						if err != nil {
-							fmt.Println("Error sending message:", err)
-						} else {
-							fmt.Println("Message sent successfully")
-						}
+					resp, err := client.SendMessage(context.Background(), v.Info.MessageSource.Chat, initialMsg)
 
-						if os.Getenv("GROQ_API_KEY") == "" {
-							fmt.Println("Groq API Key not found.\n Get your Groq API Key from https://console.groq.com to use this feature.")
+					if err != nil {
+						fmt.Println("Error sending 'Transcribing...' message:", err)
+						return
+					}
+
+					// Download the audio data.
+					audioData, err := client.Download(quotedAudioMessage)
+					if err != nil {
+						// Log an error if the download fails.
+						log.Errorf("Failed to download audio: %v", err)
+						return
+					}
+
+					// Print the sender's username.
+					fmt.Printf("The user name is: %s\n", v.Info.Sender.User)
+
+					if quotedAudioMessage.GetPTT() {
+						// Get the transcription of the audio data.
+						maybeText := getTranscription(audioData)
+
+						if maybeText != nil {
+							fmt.Println("Transcription received")
+
+							text := *maybeText
+
+							// Create a new message with the transcription.
+							editMsg := client.BuildEdit(v.Info.MessageSource.Chat, resp.ID, &waProto.Message{
+								// Create an extended text message with the transcription.
+								ExtendedTextMessage: &waProto.ExtendedTextMessage{
+									// Set the text of the message.
+									Text: proto.String(*messageHead + text),
+
+									// Set the context info of the message.
+									ContextInfo: &waProto.ContextInfo{
+										StanzaID:      proto.String(contextInfo.GetStanzaID()),
+										Participant:   proto.String(contextInfo.GetParticipant()),
+										QuotedMessage: contextInfo.GetQuotedMessage(),
+									},
+								},
+							})
+
+							// Send the message.
+							_, err := client.SendMessage(context.Background(), v.Info.MessageSource.Chat, editMsg)
+							if err != nil {
+								fmt.Println("Error editing message with transcription:", err)
+							} else {
+								fmt.Println("Message edited successfully with transcription")
+							}
+
+							if os.Getenv("GROQ_API_KEY") == "" {
+								fmt.Println("Groq API Key not found.\n Get your Groq API Key from https://console.groq.com to use this feature.")
+							} else {
+								groq.SendGroqMessage(client, text, v, contextInfo)
+							}
 						} else {
-							groq.SendGroqMessage(client, text, v)
+							fmt.Println("Transcription is nil")
 						}
-					} else {
-						fmt.Println("Transcription is nil")
 					}
 				}
 			}

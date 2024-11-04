@@ -96,7 +96,12 @@ func htmlToWhatsAppFormat(html string) string {
 //  3. Formats the response to be suitable for WhatsApp.
 //  4. Constructs a WhatsApp message with the formatted response.
 //  5. Sends the constructed message back to the user on WhatsApp.
-func SendGroqMessage(client *whatsmeow.Client, text string, message *events.Message) {
+func SendGroqMessage(
+	client *whatsmeow.Client,
+	text string,
+	message *events.Message,
+	contextInfo *waProto.ContextInfo,
+) {
 	fmt.Println("Sending message to Groq:", text)
 
 	// Send the user's message to Groq and get the response.
@@ -114,9 +119,9 @@ func SendGroqMessage(client *whatsmeow.Client, text string, message *events.Mess
 			Text: proto.String("Response from Groq:\n" + response),
 
 			ContextInfo: &waProto.ContextInfo{
-				StanzaID:      proto.String(message.Info.ID),
-				Participant:   proto.String(message.Info.Sender.ToNonAD().String()),
-				QuotedMessage: message.Message,
+				StanzaID:      proto.String(contextInfo.GetStanzaID()),
+				Participant:   proto.String(contextInfo.GetParticipant()),
+				QuotedMessage: contextInfo.GetQuotedMessage(),
 			},
 		},
 	}
