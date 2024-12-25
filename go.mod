@@ -1,4 +1,4 @@
-module github.com/cr2007/whatsapp-whisper-groq
+module github.com/cr2007/whatsapp-voice-ai-assistant
 
 go 1.22.5
 

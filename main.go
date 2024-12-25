@@ -13,7 +13,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cr2007/whatsapp-whisper-groq/groq"
+	"github.com/cr2007/whatsapp-voice-ai-assistant/groq"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/mattn/go-sqlite3"
