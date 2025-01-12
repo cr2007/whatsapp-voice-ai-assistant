@@ -197,4 +197,4 @@ go.work.sum
 *.excalidraw
 
 # WhatsApp Database (SQLite file)
-whatsmeow.db
+whatsmeow.db*
