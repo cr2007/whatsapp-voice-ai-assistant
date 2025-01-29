@@ -28,5 +28,5 @@
         }
     },
     "postCreateCommand": "go mod tidy",
-    "postStartCommand": "pip install -r requirements.txt"
+    "postStartCommand": "pip install -r requirements.txt && chmod +x ./.devcontainer/setup.sh && bash ./.devcontainer/setup.sh"
 }
