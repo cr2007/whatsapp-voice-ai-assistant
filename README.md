@@ -69,6 +69,7 @@ To run this application, make sure you have the following installed:
 
 - [Go](https://go.dev)
 - [Python](https://python.org)
+  - [uv](https://docs.astral.sh/uv) package manager
 - Groq API Key (Get it from [groqcloud](https://console.groq.com/keys))
 
 > [!IMPORTANT]
@@ -85,26 +86,12 @@ go mod tidy
 ```
 
 #### Python
-1. Create a virtual environment
+Ensure you have [uv](https://docs.astral.sh/uv) installed for this process
 
-```python
-python -m venv .venv
-```
-
-2. Activate the virtual environment
+1. Setup the virtual environment and install the required packages
 
 ```shell
-# For Linux
-source .venv/bin/activate
-
-# For Windows
-.venv\Scripts\activate
-```
-
-3. Install the required packages
-
-```shell
-pip install -r requirements.txt
+uv sync
 ```
 
 ## Usage
@@ -117,7 +104,7 @@ To start, you need to start the Go application as well as the Flask server.
 1. Start the Flask server
 
 ```
-python main.py
+uv run main.py
 ```
 
 Note down the IP Address mentioned in the terminal, as you would need it to configure the Go application for sending the audio data.
