@@ -1,6 +1,6 @@
 module github.com/cr2007/whatsapp-voice-ai-assistant
 
-go 1.22.5
+go 1.23.0
 
 require (
 	github.com/joho/godotenv v1.5.1
@@ -19,9 +19,9 @@ require (
 	github.com/rs/zerolog v1.33.0 // indirect
 	go.mau.fi/libsignal v0.1.1 // indirect
 	go.mau.fi/util v0.6.0 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/term v0.29.0 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )
