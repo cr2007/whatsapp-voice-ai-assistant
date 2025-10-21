@@ -1,6 +1,6 @@
 {
     "name": "WhatsApp VN Dev Container",
-    "image": "mcr.microsoft.com/devcontainers/go:1.22",
+    "image": "mcr.microsoft.com/devcontainers/go:1.24",
     "features": {
         "ghcr.io/va-h/devcontainers-features/uv:1": {}
     },
