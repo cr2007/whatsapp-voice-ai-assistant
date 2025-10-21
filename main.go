@@ -46,16 +46,17 @@ func main() {
 
 	// Initialize database logger with DEBUG level logging to stdout.
 	log = waLog.Stdout("Database", "DEBUG", true)
+	ctx := context.Background()
 
 	// Create a new SQL store container using SQLite3.
-	container, err := sqlstore.New("sqlite3", "file:whatsmeow.db?_foreign_keys=on", log)
+	container, err := sqlstore.New(ctx, "sqlite3", "file:whatsmeow.db?_foreign_keys=on", log)
 	if err != nil {
 		fmt.Println("Error creating SQL store container:", err)
 		panic(err)
 	}
 
 	// Get the first device from the store.
-	deviceStore, err := container.GetFirstDevice()
+	deviceStore, err := container.GetFirstDevice(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +68,7 @@ func main() {
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
 	// Add an event handler to the client.
-	client.AddEventHandler(GetEventHandler(client))
+	client.AddEventHandler(GetEventHandler(client, ctx))
 
 	if client.Store.ID == nil {
 		// No ID stored, new login
@@ -117,7 +118,7 @@ The returned function handles the following events:
   - Message: Processes audio messages, downloads the audio, and sends a transcription
     if the audio is a PTT (Push-To-Talk) message.
 */
-func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
+func GetEventHandler(client *whatsmeow.Client, ctx context.Context) func(interface{}) {
 	return func(evt interface{}) {
 		switch v := evt.(type) {
 		case *events.StreamReplaced, *events.Disconnected:
@@ -171,7 +172,7 @@ func GetEventHandler(client *whatsmeow.Client) func(interface{}) {
 					}
 
 					// Download the audio data.
-					audioData, err := client.Download(quotedAudioMessage)
+					audioData, err := client.Download(ctx, quotedAudioMessage)
 					if err != nil {
 						// Log an error if the download fails.
 						log.Errorf("Failed to download audio: %v", err)
