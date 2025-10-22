@@ -9,7 +9,7 @@
     <br>
     <a href="https://groq.com" target="_blank" rel="noopener noreferrer">
       <img
-        src="https://console.groq.com/powered-by-groq.svg"
+        src="https://console.groq.com/powered-by-groq-dark.svg"
         alt="Powered by Groq for fast inference."
         width=10%
       />
