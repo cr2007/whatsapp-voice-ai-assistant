@@ -24,8 +24,10 @@
     <a href="https://www.whatsapp.com/">
         <img alt="WhatsApp" title="WhatsApp" src="https://img.shields.io/badge/WhatsApp-informational?style=flat&logo=WhatsApp&logoColor=white&color=25D366">
     </a>
-
-
+    <br>
+    <a href="https://deepwiki.com/cr2007/whatsapp-voice-ai-assistant">
+        <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
+    </a>
 </div>
 <br>
 
