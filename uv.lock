@@ -130,7 +130,7 @@ wheels = [
 
 [[package]]
 name = "faster-whisper"
-version = "1.1.1"
+version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "av" },
@@ -140,9 +140,8 @@ dependencies = [
     { name = "tokenizers" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/be/53/195e5b42ede5f09453828d3b00d52bd952ed0e07a8e5c6497affefcfa3be/faster-whisper-1.1.1.tar.gz", hash = "sha256:50d27571970c1be0c2b2680a2593d5d12f9f5d2f10484f242a1afbe7cb946604", size = 1124684, upload-time = "2025-01-01T14:47:21.712Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ad/69/28359d152f9e2ec1ff4dff3da47011b6346e9a472f89b409bb13017a7d1f/faster_whisper-1.1.1-py3-none-any.whl", hash = "sha256:5808dc334fb64fb4336921450abccfe5e313a859b31ba61def0ac7f639383d90", size = 1118368, upload-time = "2025-01-01T14:47:16.131Z" },
+    { url = "https://files.pythonhosted.org/packages/05/99/49ee85903dee060d9f08297b4a342e5e0bcfca2f027a07b4ee0a38ab13f9/faster_whisper-1.2.1-py3-none-any.whl", hash = "sha256:79a66ad50688c0b794dd501dc340a736992a6342f7f95e5811be60b5224a26a7", size = 1118909, upload-time = "2025-10-31T11:35:47.794Z" },
 ]
 
 [[package]]
@@ -560,7 +559,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "faster-whisper", specifier = ">=1.0.3,<2.0.0" },
+    { name = "faster-whisper", specifier = ">=1.2.1,<2.0.0" },
     { name = "flask", specifier = ">=3.0.3,<4.0.0" },
 ]
 

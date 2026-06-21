@@ -10,7 +10,7 @@ authors = [
 requires-python = "<3.14,>=3.12"
 dependencies = [
     "Flask<4.0.0,>=3.0.3",
-    "faster-whisper<2.0.0,>=1.0.3",
+    "faster-whisper<2.0.0,>=1.2.1",
 ]
 [dependency-groups]
 dev = [
