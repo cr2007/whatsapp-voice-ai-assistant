@@ -1,7 +1,6 @@
 <!-- omit from toc -->
 # WhatsApp Voice Message Transcription and AI Assistant
 
-
 <div align="center">
     <a alt="Open in GitHub Codespaces" href="https://codespaces.new/cr2007/whatsapp-voice-ai-assistant">
         <img src="https://github.com/codespaces/badge.svg" />
@@ -31,7 +30,18 @@
 </div>
 <br>
 
-A microservices-based WhatsApp bot that automatically transcribes voice messages and provides AI-powered responses.
+> [!WARNING]
+> **For educational purposes only.** This project uses the unofficial WhatsApp multi-device protocol via [whatsmeow](https://github.com/tulir/whatsmeow).
+> Running automated bots on a personal WhatsApp account violates [WhatsApp's Terms of Service](https://www.whatsapp.com/legal/terms-of-service)
+> and risks having your account permanently banned.
+>
+> **Do not use this in production or at any scale.**
+>
+> If you need a production-grade WhatsApp integration, use the official
+> [WhatsApp Business Platform (Cloud API)](https://developers.facebook.com/docs/whatsapp/cloud-api/)
+> provided by Meta.
+
+A microservices-based WhatsApp bot that transcribes voice messages and audio files, with optional AI-powered responses via Groq.
 
 <!-- omit from toc -->
 ## Table of Contents
@@ -39,29 +49,36 @@ A microservices-based WhatsApp bot that automatically transcribes voice messages
 - [Technologies Used](#technologies-used)
 - [Setup](#setup)
   - [Prerequisites](#prerequisites)
+  - [Environment Variables](#environment-variables)
   - [Installation](#installation)
     - [Go](#go)
     - [Python](#python)
 - [Usage](#usage)
+  - [Trigger Commands](#trigger-commands)
+  - [Optional Flag](#optional-flag)
 - [Configuration](#configuration)
+- [Testing](#testing)
 - [API Endpoint](#api-endpoint)
 - [Contributing](#contributing)
 - [Acknowledgements](#acknowledgements)
 
 ## Features
-- Real-time voice message transcription
-- AI-powered responses (powered by Groq API)
-- Integration with WhatsApp
-- Microservices architecture for scalability
+
+- Transcribes WhatsApp voice notes **and** regular audio files
+- Two trigger modes — transcribe-only, or transcribe and send to Groq for an AI response
+- Early validation: replies with a usage hint if the quoted message is not audio
+- Configurable transcription server URL and message prefix
+- No GCC required — uses a pure-Go SQLite driver (`modernc.org/sqlite`)
 
 ## Technologies Used
+
 - Go
 - Python
 - Flask
-- SQLite
-- WhatsApp API (via whatsmeow)
-- Faster-Whisper (for speech recognition)
-- Groq API
+- SQLite (via `modernc.org/sqlite` — no CGO)
+- [whatsmeow](https://github.com/tulir/whatsmeow) — unofficial WhatsApp multi-device library
+- [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) — local speech recognition
+- [Groq API](https://console.groq.com) — fast LLM inference
 
 | ![Overall App Logic Flow](./images/Logic-Flow.png) | ![System Architecture](./images/Overall-System-Architecture.png) |
 | -------------------------------------------------- | ---------------------------------------------------------------- |
@@ -70,30 +87,57 @@ A microservices-based WhatsApp bot that automatically transcribes voice messages
 
 ### Prerequisites
 
-To run this application, make sure you have the following installed:
+- [Go 1.25+](https://go.dev)
+- [Python 3.x](https://python.org) with [uv](https://docs.astral.sh/uv)
+- A Groq API key from [console.groq.com/keys](https://console.groq.com/keys)
 
-- [Go](https://go.dev)
-- [Python](https://python.org)
-  - [uv](https://docs.astral.sh/uv) package manager
-- Groq API Key (Get it from [groqcloud](https://console.groq.com/keys))
+> [!NOTE]
+> GCC is no longer required. The project switched from `mattn/go-sqlite3`
+> (CGO) to `modernc.org/sqlite` (pure Go), so it builds on any platform
+> without a C compiler.
 
-> [!IMPORTANT]
-> In order to use the Whatsmeow library on Windows, ensure that you have GCC installed.
->
-> Alternatively, you can use WSL for running the Go code. The Python code can run normally on any machine.
+### Environment Variables
+
+Copy `sample.env` to `.env` and fill in your values:
+
+```env
+GROQ_API_KEY=your_key_here
+TRANSCRIBE_URL=http://<flask-server-ip>:5000/transcribe
+```
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GROQ_API_KEY` | For `1> transcribe` | Groq API key for AI responses |
+| `TRANSCRIBE_URL` | No | Flask server URL. Defaults to `http://127.0.0.1:5000/transcribe` |
 
 ### Installation
 
 #### Go
 
-```go
+Install dependencies:
+
+```shell
 go mod tidy
 ```
 
-#### Python
-Ensure you have [uv](https://docs.astral.sh/uv) installed for this process
+Build the binary:
 
-1. Setup the virtual environment and install the required packages
+```shell
+# Linux / macOS
+go build -o whatsapp-bot .
+
+# Windows
+go build -o whatsapp-bot.exe .
+```
+
+> [!NOTE]
+> Use `go build` rather than `go run`. On some platforms (e.g. Windows with
+> Application Control policies), `go run` compiles to a temp directory that
+> may be blocked from executing.
+
+#### Python
+
+Install dependencies via [uv](https://docs.astral.sh/uv):
 
 ```shell
 uv sync
@@ -101,47 +145,106 @@ uv sync
 
 ## Usage
 
-> [!NOTE]
-> Before you start, make sure to configure your IP Address in [`main.go`](./main.go) for sending the audio data to the Flask server.
+1. Start the Flask transcription server:
 
-To start, you need to start the Go application as well as the Flask server.
+   ```shell
+   uv run main.py
+   ```
 
-1. Start the Flask server
+   If the bot runs on a different machine, note the server's IP address and
+   set it as `TRANSCRIBE_URL` in your `.env`.
 
+2. Start the bot:
+
+   ```shell
+   # Linux / macOS
+   ./whatsapp-bot
+
+   # Windows
+   .\whatsapp-bot.exe
+   ```
+
+3. On first run, scan the QR code displayed in the terminal to log into WhatsApp.
+
+4. Reply to a voice note or audio file with one of the trigger commands below.
+
+### Trigger Commands
+
+| Command | Behaviour |
+|---------|-----------|
+| `1> transcribe` | Transcribe the audio, then send the transcript to Groq for an AI response |
+| `2> transcribe` | Transcribe the audio only. No AI response sent |
+
+The trigger can appear anywhere in the message (e.g. `can you 1> transcribe this?`).
+
+If you reply to a message that is not a voice note or audio file, the bot will send a hint explaining what to do instead.
+
+### Optional Flag
+
+```shell
+./whatsapp-bot --message-head "Transcript: "
 ```
-uv run main.py
-```
 
-Note down the IP Address mentioned in the terminal, as you would need it to configure the Go application for sending the audio data.
-
-2. Start the Go application
-
-```go
-go run main.go
-```
-
-3. Scan the QR Code displayed in the terminal to log into WhatsApp
-
-4. Once logged in, any audio message sent to you will be transcribed and you will receive the response from the AI model sent back as a WhatsApp message.
+`--message-head` sets the text prepended to every transcription reply.
+Defaults to `*Transcript:*\n> ` (bold label with a block-quote indent).
 
 ## Configuration
 
-1. You would need to change your IP Address in `main.go` that sends the POST request to the Flask server.
-2. The transcription model can be changed in the `transcribe.py`file by modifying the `model_name` parameter.
-3. To use a different AI model, update the `Model` field in the `RequestPayload` struct within the [`groq/groq.go`](./groq/groq.go) file.
+| Setting | How to change |
+|---------|---------------|
+| Transcription server URL | Set `TRANSCRIBE_URL` in `.env` |
+| Groq AI model | Edit the `Model` field in `groq/groq.go` |
+| Whisper model size | Edit `model_name` in `main.py` (default: `medium.en`) |
+| Transcription reply prefix | Pass `--message-head` flag at startup |
+
+## Testing
+
+Run the full test suite:
+
+```shell
+go test ./...
+```
+
+For verbose output:
+
+```shell
+go test ./... -v
+```
+
+18 tests are included across two packages:
+
+| Test | Package | Cases |
+|------|---------|-------|
+| `TestParseTrigger` | `main` | 9 - trigger command parsing edge cases |
+| `TestGetTranscription` | `main` | 4 - HTTP client against a local test server |
+| `TestHtmlToWhatsAppFormat` | `groq` | 10 - HTML-to-WhatsApp text conversion |
+| `TestSendPostRequestGroq` | `groq` | 4 - Groq API client against a local test server |
+
+All tests run without network access or external services.
 
 ## API Endpoint
+
 The transcription service exposes a single endpoint:
 
-- POST `/transcribe`
+```
+POST /transcribe
+```
 
-Accepts binary audio data in the request body.<br>
-Returns a JSON object with transcription and language fields
+- **Request body:** raw binary audio data (`application/octet-stream`)
+- **Response:** JSON object
+
+```json
+{
+  "transcription": "the transcribed text",
+  "language": "en"
+}
+```
 
 ## Contributing
+
 1. Create a [new issue](https://github.com/cr2007/whatsapp-voice-ai-assistant/issues/new/choose)
-1. [Fork the repository](https://github.com/cr2007/whatsapp-voice-ai-assistant/fork)
-2. Create a new branch
+2. [Fork the repository](https://github.com/cr2007/whatsapp-voice-ai-assistant/fork)
+3. Create a new branch
 4. Commit your changes
 5. Push to the branch
 6. Create a new Pull Request
