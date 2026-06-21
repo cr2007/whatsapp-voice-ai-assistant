@@ -7,7 +7,7 @@ authors = [
     {name = "CSK", email = "73425927+cr2007@users.noreply.github.com"},
     {name = "Mufliha D", email = "s.mufliha12@gmail.com"},
 ]
-requires-python = "<4.0,>=3.12"
+requires-python = "<3.14,>=3.12"
 dependencies = [
     "Flask<4.0.0,>=3.0.3",
     "faster-whisper<2.0.0,>=1.0.3",
