@@ -63,6 +63,9 @@ A microservices-based WhatsApp bot that automatically transcribes voice messages
 - Faster-Whisper (for speech recognition)
 - Groq API
 
+| ![Overall App Logic Flow](./images/Logic-Flow.png) | ![System Architecture](./images/Overall-System-Architecture.png) |
+| -------------------------------------------------- | ---------------------------------------------------------------- |
+
 ## Setup
 
 ### Prerequisites
