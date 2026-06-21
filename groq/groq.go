@@ -107,7 +107,8 @@ func SendGroqMessage(
 	// Send the user's message to Groq and get the response.
 	response, err := sendPostRequestGroq(text)
 	if err != nil {
-		panic(err)
+		fmt.Println("Error sending message to Groq:", err)
+		return
 	}
 
 	// Format the response to WhatsApp format.

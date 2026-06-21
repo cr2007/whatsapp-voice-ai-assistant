@@ -16,7 +16,7 @@ import (
 	"github.com/cr2007/whatsapp-voice-ai-assistant/groq"
 
 	_ "github.com/joho/godotenv/autoload"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"github.com/mdp/qrterminal/v3"
 	"google.golang.org/protobuf/proto"
 
@@ -49,7 +49,7 @@ func main() {
 	ctx := context.Background()
 
 	// Create a new SQL store container using SQLite3.
-	container, err := sqlstore.New(ctx, "sqlite3", "file:whatsmeow.db?_foreign_keys=on", log)
+	container, err := sqlstore.New(ctx, "sqlite", "file:whatsmeow.db?_pragma=foreign_keys(ON)", log)
 	if err != nil {
 		fmt.Println("Error creating SQL store container:", err)
 		panic(err)
