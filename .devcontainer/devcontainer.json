@@ -10,18 +10,16 @@
                 "golang.go",
                 "ms-python.python",
                 "ms-vsliveshare.vsliveshare",
-                "VisualStudioExptTeam.vscodeintellicode",
                 "eamodio.gitlens",
-                "GitHub.copilot",
                 "usernamehw.errorlens",
                 "aaron-bond.better-comments"
             ]
         }
     },
-    "forwardPorts": [5000],
+    "forwardPorts": [8000],
     "portsAttributes": {
         "5000": {
-            "label": "Python Flask Server",
+            "label": "FastAPI Server",
             "onAutoForward": "notify"
         }
     },
