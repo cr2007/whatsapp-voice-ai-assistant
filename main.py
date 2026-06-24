@@ -28,9 +28,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="WhatsApp Voice Transcription API",
     description=(
-        "Local transcription service used by the WhatsApp Voice AI Assistant. "
-        "Accepts raw audio bytes and returns the transcript and detected language "
-        "using [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) running on CPU."
+        "Local transcription service for the WhatsApp Voice AI Assistant. "
+        "Accepts raw audio bytes and returns text and detected language via "
+        "[Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) on CPU."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -41,12 +41,11 @@ app = FastAPI(
     "/transcribe",
     summary="Transcribe audio",
     description=(
-        "Accepts raw binary audio data and returns the transcription and detected language.\n\n"
-        "**Request body:** Raw audio bytes (`Content-Type: application/octet-stream`). "
-        "Supports any format Faster-Whisper understands: WAV, MP3, OGG, Opus, M4A, and more.\n\n"
-        "The model runs locally on CPU using Faster-Whisper `medium.en`."
+        "POST raw audio bytes (`application/octet-stream`).\n\n"
+        "Supports any format Faster-Whisper accepts: WAV, MP3, OGG, Opus, M4A, and more. "
+        "Runs locally on CPU using `medium.en`."
     ),
-    response_description="Transcribed text and the BCP-47 language code detected by Whisper.",
+    response_description="Transcribed text and BCP-47 language code.",
     tags=["Transcription"],
 )
 async def transcribe(request: Request) -> TranscriptionResponse:
