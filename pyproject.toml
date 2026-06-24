@@ -10,7 +10,7 @@ authors = [
 requires-python = "<3.14,>=3.12"
 dependencies = [
     "fastapi[standard]>=0.138.0",
-    "faster-whisper<2.0.0,>=1.2.1",
+    "faster-whisper>=1.2.1,<2.0.0",
 ]
 [dependency-groups]
 dev = [
