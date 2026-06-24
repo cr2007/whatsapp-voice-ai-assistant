@@ -74,7 +74,7 @@ A microservices-based WhatsApp bot that transcribes voice messages and audio fil
 
 - Go
 - Python
-- Flask
+- [FastAPI](https://fastapi.tiangolo.com) + [Uvicorn](https://www.uvicorn.org)
 - SQLite (via `modernc.org/sqlite` — no CGO)
 - [whatsmeow](https://github.com/tulir/whatsmeow) — unofficial WhatsApp multi-device library
 - [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) — local speech recognition
@@ -108,7 +108,7 @@ TRANSCRIBE_URL=http://<flask-server-ip>:5000/transcribe
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `GROQ_API_KEY` | For `1> transcribe` | Groq API key for AI responses |
-| `TRANSCRIBE_URL` | No | Flask server URL. Defaults to `http://127.0.0.1:5000/transcribe` |
+| `TRANSCRIBE_URL` | No | Transcription server URL. Defaults to `http://127.0.0.1:5000/transcribe` |
 
 ### Installation
 
@@ -145,7 +145,7 @@ uv sync
 
 ## Usage
 
-1. Start the Flask transcription server:
+1. Start the transcription server:
 
    ```shell
    uv run main.py

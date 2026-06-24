@@ -1,26 +1,71 @@
-from flask import Flask, request, jsonify
-from transcribe import transcribe_audio  # Import the transcribe_audio function
+import socket
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-app = Flask(__name__)
+from fastapi import FastAPI, Request
+from pydantic import BaseModel, Field
 
-@app.route('/transcribe', methods=['POST'])
-def transcribe():
-	# Get the binary audio data from the request
-	audio_data = request.data
+from transcribe import transcribe_audio
 
-	# Call the transcribe_audio function
-	result = transcribe_audio(
-		audio_data,
-		model_name="medium.en",
-		word_timestamps=True,
-		verbose=False
-	)
 
-	# Return the transcription as a JSON response
-	return jsonify({
-		"transcription": result["text"],
-		"language": result["language"],
-	})
+class TranscriptionResponse(BaseModel):
+    transcription: str = Field(description="The transcribed text from the audio.")
+    language: str = Field(description="BCP-47 language code detected by Whisper (e.g. 'en').")
 
-if __name__ == '__main__':
-	app.run(host="0.0.0.0", port=5000)
+
+def _local_ip() -> str:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    print(f" * LAN address: {_local_ip()}")
+    yield
+
+
+app = FastAPI(
+    title="WhatsApp Voice Transcription API",
+    description=(
+        "Local transcription service used by the WhatsApp Voice AI Assistant. "
+        "Accepts raw audio bytes and returns the transcript and detected language "
+        "using [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) running on CPU."
+    ),
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+@app.post(
+    "/transcribe",
+    summary="Transcribe audio",
+    description=(
+        "Accepts raw binary audio data and returns the transcription and detected language.\n\n"
+        "**Request body:** Raw audio bytes (`Content-Type: application/octet-stream`). "
+        "Supports any format Faster-Whisper understands: WAV, MP3, OGG, Opus, M4A, and more.\n\n"
+        "The model runs locally on CPU using Faster-Whisper `medium.en`."
+    ),
+    response_description="Transcribed text and the BCP-47 language code detected by Whisper.",
+    tags=["Transcription"],
+)
+async def transcribe(request: Request) -> TranscriptionResponse:
+    audio_data = await request.body()
+
+    result = transcribe_audio(
+        audio_data,
+        model_name="medium.en",
+        word_timestamps=True,
+        verbose=False,
+    )
+
+    return TranscriptionResponse(
+        transcription=result["text"],
+        language=result["language"],
+    )
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=5000)
