@@ -1,0 +1,20 @@
+# Stage 1: Build the Go binary
+FROM golang:1.25-bookworm AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o whatsapp-bot .
+
+# Stage 2: Distroless runtime (CA certs + tz data included, no shell)
+FROM gcr.io/distroless/static-debian12
+
+COPY --from=builder /app/whatsapp-bot /usr/local/bin/whatsapp-bot
+
+# WORKDIR determines where whatsmeow.db is created; mount this path as a volume
+WORKDIR /data
+
+CMD ["/usr/local/bin/whatsapp-bot"]

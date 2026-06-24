@@ -1,0 +1,9 @@
+.git
+.env
+.venv
+*.log
+*.md
+whatsapp-bot
+whatsapp-bot.exe
+whatsmeow.db
+fkprobe.go

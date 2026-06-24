@@ -1,0 +1,25 @@
+services:
+  transcribe:
+    build:
+      context: .
+      dockerfile: Dockerfile.transcribe
+    ports:
+      - "8000:8000"
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    depends_on:
+      - transcribe
+    env_file:
+      - .env
+    environment:
+      TRANSCRIBE_URL: http://transcribe:8000/transcribe
+    volumes:
+      - whatsapp_session:/data
+    stdin_open: true
+    tty: true
+
+volumes:
+  whatsapp_session:

@@ -50,7 +50,8 @@ A microservices-based WhatsApp bot that transcribes voice messages and audio fil
 - [Setup](#setup)
   - [Prerequisites](#prerequisites)
   - [Environment Variables](#environment-variables)
-  - [Installation](#installation)
+  - [Docker Compose (recommended)](#docker-compose-recommended)
+  - [Manual Installation](#manual-installation)
     - [Go](#go)
     - [Python](#python)
 - [Usage](#usage)
@@ -75,7 +76,7 @@ A microservices-based WhatsApp bot that transcribes voice messages and audio fil
 - Go
 - Python
 - [FastAPI](https://fastapi.tiangolo.com) + [Uvicorn](https://www.uvicorn.org)
-- SQLite (via `modernc.org/sqlite` — no CGO)
+- SQLite (via `modernc.org/sqlite` - no CGO)
 - [whatsmeow](https://github.com/tulir/whatsmeow) — unofficial WhatsApp multi-device library
 - [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) — local speech recognition
 - [Groq API](https://console.groq.com) — fast LLM inference
@@ -110,7 +111,39 @@ TRANSCRIBE_URL=http://<flask-server-ip>:5000/transcribe
 | `GROQ_API_KEY` | For `1> transcribe` | Groq API key for AI responses |
 | `TRANSCRIBE_URL` | No | Transcription server URL. Defaults to `http://127.0.0.1:5000/transcribe` |
 
-### Installation
+### Docker Compose (recommended)
+
+The easiest way to run both services together. Only `GROQ_API_KEY` needs to
+be set — `TRANSCRIBE_URL` is wired automatically via Docker's internal network.
+
+1. Copy `sample.env` to `.env` and add your Groq API key:
+
+   ```env
+   GROQ_API_KEY=your_key_here
+   ```
+
+2. Build and start both services:
+
+   ```shell
+   docker compose up --build
+   ```
+
+   The first build downloads the `medium.en` Whisper model (~1.5 GB) and bakes
+   it into the image. Subsequent starts are instant.
+
+3. On first run, scan the QR code printed in the terminal to log into WhatsApp.
+
+   If running detached (`-d`), view the QR code with:
+
+   ```shell
+   docker compose logs -f bot
+   ```
+
+The WhatsApp session is stored in a named Docker volume (`whatsapp_session`) so
+you only need to scan the QR code once. The transcription API docs are available
+at `http://localhost:8000/docs`.
+
+### Manual Installation
 
 #### Go
 
