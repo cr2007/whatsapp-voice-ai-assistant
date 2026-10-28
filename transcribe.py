@@ -15,18 +15,21 @@ def transcribe_audio(
     word_timestamps: bool = True,
     verbose: bool = True,
 ) -> TranscriptionResult:
-    audio_stream = io.BytesIO(audio_data)
+    """Transcribe audio bytes on the CPU with Faster-Whisper.
 
+    Returns the joined segment text and the detected language code.
+    """
+    # Step 1: Load the model and transcribe the audio.
     model = WhisperModel(model_name, device="cpu", compute_type="int8")
-    segments, info = model.transcribe(audio_stream, word_timestamps=word_timestamps)
+    segments, info = model.transcribe(io.BytesIO(audio_data), word_timestamps=word_timestamps)
 
+    # Step 2: Join the segments into one string.
     result: TranscriptionResult = {
-        "text": " ".join([segment.text for segment in segments]).strip(),
+        "text": " ".join(segment.text for segment in segments).strip(),
         "language": info.language,
     }
 
     print(f"Transcription: {result['text']}")
-
     if verbose:
         print(f"Transcription info: {info}")
 

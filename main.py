@@ -14,6 +14,7 @@ class TranscriptionResponse(BaseModel):
 
 
 def _local_ip() -> str:
+    """Return the LAN IP address of this machine. No packets are sent."""
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.connect(("8.8.8.8", 80))
         return s.getsockname()[0]
@@ -21,6 +22,7 @@ def _local_ip() -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Print the LAN address at startup so the bot can find the server."""
     print(f" * LAN address: {_local_ip()}")
     yield
 
@@ -49,6 +51,7 @@ app = FastAPI(
     tags=["Transcription"],
 )
 async def transcribe(request: Request) -> TranscriptionResponse:
+    """Transcribe the raw audio in the request body."""
     audio_data = await request.body()
 
     result = transcribe_audio(
