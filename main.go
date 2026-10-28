@@ -1,267 +1,114 @@
+// Command whatsapp-bot transcribes WhatsApp voice notes and audio files, and
+// can send the transcript to Groq for an AI response.
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
-	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/cr2007/whatsapp-voice-ai-assistant/groq"
+	"github.com/cr2007/whatsapp-voice-ai-assistant/transcription"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/mdp/qrterminal/v3"
-	"google.golang.org/protobuf/proto"
 	_ "modernc.org/sqlite"
 
 	"go.mau.fi/whatsmeow"
-	waProto "go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
-	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
-type transcriptionResponse struct {
-	Transcription string `json:"transcription"`
-	Language      string `json:"language"`
-}
+var messageHead = flag.String("message-head", "*Transcript:*\n> ", "text prepended to each transcription reply")
 
-// trigger represents the command mode parsed from an incoming message.
-type trigger int
-
-const (
-	triggerNone trigger = iota
-	triggerGroq         // "1> transcribe": transcribe + send to Groq
-	triggerOnly         // "2> transcribe": transcribe only
-)
-
-var (
-	log     waLog.Logger
-	quitter = make(chan struct{})
-
-	messageHead   = flag.String("message-head", "*Transcript:*\n> ", "text prepended to each transcription reply")
-	transcribeURL = "http://127.0.0.1:5000/transcribe"
-)
-
+// main starts the bot and runs it until it receives SIGINT or SIGTERM.
 func main() {
 	flag.Parse()
-
-	if u := os.Getenv("TRANSCRIBE_URL"); u != "" {
-		transcribeURL = u
-	}
-
-	log = waLog.Stdout("Database", "DEBUG", true)
 	ctx := context.Background()
+	log := waLog.Stdout("Main", "INFO", true)
 
-	container, err := sqlstore.New(ctx, "sqlite", "file:whatsmeow.db?_pragma=foreign_keys(ON)", log)
+	// Step 1: Open the device store and create the client.
+	container, err := sqlstore.New(ctx, "sqlite", "file:whatsmeow.db?_pragma=foreign_keys(ON)", waLog.Stdout("Database", "DEBUG", true))
 	if err != nil {
-		fmt.Println("Error creating SQL store container:", err)
-		panic(err)
+		log.Errorf("Failed to open SQL store: %v", err)
+		os.Exit(1)
 	}
-
-	deviceStore, err := container.GetFirstDevice(ctx)
+	device, err := container.GetFirstDevice(ctx)
 	if err != nil {
-		panic(err)
+		log.Errorf("Failed to load device: %v", err)
+		os.Exit(1)
 	}
 
-	client := whatsmeow.NewClient(deviceStore, waLog.Stdout("Client", "INFO", true))
-	client.AddEventHandler(GetEventHandler(client, ctx))
+	client := whatsmeow.NewClient(device, waLog.Stdout("Client", "INFO", true))
 
-	if client.Store.ID == nil {
-		qrChan, _ := client.GetQRChannel(context.Background())
-		if err = client.Connect(); err != nil {
-			panic(err)
-		}
-		for evt := range qrChan {
-			if evt.Event == "code" {
-				qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
-			} else {
-				fmt.Println("Login event:", evt.Event)
-			}
-		}
-	} else {
-		if err = client.Connect(); err != nil {
-			panic(err)
-		}
+	// Step 2: Register the bot as the event handler.
+	client.AddEventHandler(newBot(client, waLog.Stdout("Bot", "INFO", true)).handleEvent)
+
+	// Step 3: Connect, and log in with a QR code on the first run.
+	if err := connect(ctx, client, log); err != nil {
+		log.Errorf("Failed to connect: %v", err)
+		os.Exit(1)
 	}
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
+	// Step 4: Wait for a shutdown signal, then disconnect.
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	<-sig
 
 	client.Disconnect()
-	fmt.Println("Client disconnected")
+	log.Infof("Client disconnected")
 }
 
-// parseTrigger returns the trigger mode encoded in msg, or triggerNone.
-func parseTrigger(msg string) trigger {
-	if !strings.Contains(msg, "transcribe") {
-		return triggerNone
+// newBot creates a bot that uses client and reads its settings from the
+// environment and the command-line flags.
+func newBot(client messenger, log waLog.Logger) *bot {
+	url := os.Getenv("TRANSCRIBE_URL")
+	if url == "" {
+		url = transcription.DefaultURL
 	}
-	if strings.Contains(msg, "1>") {
-		return triggerGroq
+
+	b := &bot{
+		client:      client,
+		log:         log,
+		messageHead: *messageHead,
+		transcribe: func(ctx context.Context, audio []byte) (string, error) {
+			return transcription.Transcribe(ctx, url, audio)
+		},
 	}
-	if strings.Contains(msg, "2>") {
-		return triggerOnly
-	}
-	return triggerNone
-}
-
-// GetEventHandler returns an event handler for the WhatsApp client.
-//
-// Trigger commands (sent as a reply to a quoted audio message):
-//   - "1> transcribe" - transcribe audio and send result to Groq
-//   - "2> transcribe" - transcribe audio only, no Groq call
-func GetEventHandler(client *whatsmeow.Client, ctx context.Context) func(interface{}) {
-	return func(evt interface{}) {
-		switch v := evt.(type) {
-		case *events.StreamReplaced, *events.Disconnected:
-			log.Infof("Got %+v, Terminating", evt)
-			close(quitter)
-
-		case *events.Message:
-			var messageBody string
-			var quotedAudio *waProto.AudioMessage
-			var contextInfo *waProto.ContextInfo
-			hasQuotedMessage := false
-
-			if v.Message.GetConversation() != "" {
-				messageBody = v.Message.GetConversation()
-			} else if v.Message.ExtendedTextMessage != nil {
-				messageBody = v.Message.ExtendedTextMessage.GetText()
-				if ci := v.Message.ExtendedTextMessage.GetContextInfo(); ci != nil {
-					contextInfo = ci
-					if quotedMsg := ci.QuotedMessage; quotedMsg != nil {
-						hasQuotedMessage = true
-						quotedAudio = quotedMsg.GetAudioMessage()
-					}
-				}
-			}
-
-			t := parseTrigger(messageBody)
-			if t == triggerNone {
-				return
-			}
-
-			if quotedAudio != nil {
-				processAudio(client, ctx, v, quotedAudio, contextInfo, t == triggerGroq)
-				return
-			}
-
-			var hint string
-			if !hasQuotedMessage {
-				hint = "Please reply to a voice note or audio file to use this command."
-			} else {
-				hint = "The quoted message is not a voice note or audio file."
-			}
-			if _, err := client.SendMessage(context.Background(), v.Info.MessageSource.Chat, &waProto.Message{
-				Conversation: proto.String(hint),
-			}); err != nil {
-				fmt.Println("Error sending usage hint:", err)
-			}
+	if key := os.Getenv("GROQ_API_KEY"); key != "" {
+		b.ask = func(ctx context.Context, prompt string) (string, error) {
+			return groq.Complete(ctx, key, prompt)
 		}
 	}
+	return b
 }
 
-func processAudio(
-	client *whatsmeow.Client,
-	ctx context.Context,
-	v *events.Message,
-	audio *waProto.AudioMessage,
-	contextInfo *waProto.ContextInfo,
-	sendToGroq bool,
-) {
-	fmt.Println("Audio message received")
+// connect connects client to WhatsApp. When the device has no session, it
+// prints QR codes to the terminal until the login completes.
+func connect(ctx context.Context, client *whatsmeow.Client, log waLog.Logger) error {
+	// Step 1: Reuse the stored session when there is one.
+	if client.Store.ID != nil {
+		return client.Connect()
+	}
 
-	resp, err := client.SendMessage(context.Background(), v.Info.MessageSource.Chat, &waProto.Message{
-		ExtendedTextMessage: &waProto.ExtendedTextMessage{
-			Text: proto.String("Transcribing..."),
-			ContextInfo: &waProto.ContextInfo{
-				StanzaID:      proto.String(contextInfo.GetStanzaID()),
-				Participant:   proto.String(contextInfo.GetParticipant()),
-				QuotedMessage: contextInfo.GetQuotedMessage(),
-			},
-		},
-	})
+	// Step 2: Otherwise, get the QR channel before connecting.
+	qrChan, err := client.GetQRChannel(ctx)
 	if err != nil {
-		fmt.Println("Error sending 'Transcribing...' message:", err)
-		return
+		return err
+	}
+	if err := client.Connect(); err != nil {
+		return err
 	}
 
-	audioData, err := client.Download(ctx, audio)
-	if err != nil {
-		log.Errorf("Failed to download audio: %v", err)
-		return
-	}
-
-	fmt.Printf("Sender: %s\n", v.Info.Sender.User)
-
-	text, err := getTranscription(audioData)
-	if err != nil {
-		log.Errorf("Transcription failed: %v", err)
-		return
-	}
-	if text == "" {
-		fmt.Println("Empty transcription received")
-		return
-	}
-
-	fmt.Println("Transcription received:", text)
-
-	editMsg := client.BuildEdit(v.Info.MessageSource.Chat, resp.ID, &waProto.Message{
-		ExtendedTextMessage: &waProto.ExtendedTextMessage{
-			Text: proto.String(*messageHead + text),
-			ContextInfo: &waProto.ContextInfo{
-				StanzaID:      proto.String(contextInfo.GetStanzaID()),
-				Participant:   proto.String(contextInfo.GetParticipant()),
-				QuotedMessage: contextInfo.GetQuotedMessage(),
-			},
-		},
-	})
-
-	if _, err = client.SendMessage(context.Background(), v.Info.MessageSource.Chat, editMsg); err != nil {
-		fmt.Println("Error editing message with transcription:", err)
-	} else {
-		fmt.Println("Message edited successfully with transcription")
-	}
-
-	if sendToGroq {
-		if os.Getenv("GROQ_API_KEY") == "" {
-			fmt.Println("Groq API Key not found. Set GROQ_API_KEY to enable AI responses.")
+	// Step 3: Print each QR code until the login succeeds or fails.
+	for evt := range qrChan {
+		if evt.Event == "code" {
+			qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
 		} else {
-			groq.SendGroqMessage(client, text, v, contextInfo)
+			log.Infof("Login event: %s", evt.Event)
 		}
 	}
-}
-
-func getTranscription(audioData []byte) (string, error) {
-	req, err := http.NewRequest("POST", transcribeURL, bytes.NewReader(audioData))
-	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/octet-stream")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
-	}
-
-	var result transcriptionResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("parse response: %w", err)
-	}
-
-	return result.Transcription, nil
+	return nil
 }

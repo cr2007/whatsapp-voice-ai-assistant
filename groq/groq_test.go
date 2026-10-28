@@ -1,101 +1,55 @@
 package groq
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func TestHtmlToWhatsAppFormat(t *testing.T) {
+func TestComplete(t *testing.T) {
 	tests := []struct {
-		name  string
-		input string
-		want  string
+		name    string
+		status  int
+		body    string
+		want    string
+		wantErr bool
 	}{
-		{"plain text unchanged", "hello world", "hello world"},
-		{"closing p with newline", "hello</p>\nworld", "hello\nworld"},
-		{"closing p without newline", "hello</p>world", "hello\nworld"},
-		{"opening p removed", "<p>hello", "hello"},
-		{"paragraph round-trip", "<p>hello</p>", "hello\n"},
-		{"line break", "one<br>two", "one\ntwo"},
-		{"list item", "<li>item</li>", "- item\n"},
-		{"ordered list open", "<ol>items", "- items"},
-		{"ordered list close", "items</ol>", "items\n"},
-		{"empty string", "", ""},
+		{"first choice", http.StatusOK, `{"choices":[{"message":{"role":"assistant","content":"test reply"}}]}`, "test reply", false},
+		{"no choices", http.StatusOK, `{"choices":[]}`, "", true},
+		{"unauthorized", http.StatusUnauthorized, `{"error":{"message":"bad key"}}`, "", true},
+		{"invalid JSON", http.StatusOK, "not json", "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := htmlToWhatsAppFormat(tt.input)
+			var gotReq request
+			var gotAuth string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotAuth = r.Header.Get("Authorization")
+				json.NewDecoder(r.Body).Decode(&gotReq)
+				w.WriteHeader(tt.status)
+				w.Write([]byte(tt.body))
+			}))
+			defer srv.Close()
+
+			orig := apiURL
+			apiURL = srv.URL
+			t.Cleanup(func() { apiURL = orig })
+
+			got, err := Complete(context.Background(), "test-key", "hello")
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
 			if got != tt.want {
-				t.Errorf("htmlToWhatsAppFormat(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+			if gotAuth != "Bearer test-key" {
+				t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer test-key")
+			}
+			if gotReq.Model != Model || len(gotReq.Messages) != 1 || gotReq.Messages[0].Content != "hello" {
+				t.Errorf("request = %+v, want one user message %q for model %q", gotReq, "hello", Model)
 			}
 		})
 	}
-}
-
-func TestSendPostRequestGroq(t *testing.T) {
-	t.Run("returns content from first choice", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(groqResponse{
-				Choices: []groqChoice{
-					{Message: groqMessage{Content: "test reply"}},
-				},
-			})
-		}))
-		defer srv.Close()
-
-		t.Setenv("GROQ_API_KEY", "test-key")
-		orig := groqAPIURL
-		groqAPIURL = srv.URL
-		t.Cleanup(func() { groqAPIURL = orig })
-
-		got, err := sendPostRequestGroq("hello")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got != "test reply" {
-			t.Errorf("got %q, want %q", got, "test reply")
-		}
-	})
-
-	t.Run("errors on empty choices", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(groqResponse{})
-		}))
-		defer srv.Close()
-
-		t.Setenv("GROQ_API_KEY", "test-key")
-		orig := groqAPIURL
-		groqAPIURL = srv.URL
-		t.Cleanup(func() { groqAPIURL = orig })
-
-		if _, err := sendPostRequestGroq("hello"); err == nil {
-			t.Error("expected error for empty choices, got nil")
-		}
-	})
-
-	t.Run("errors when GROQ_API_KEY is not set", func(t *testing.T) {
-		t.Setenv("GROQ_API_KEY", "")
-
-		if _, err := sendPostRequestGroq("hello"); err == nil {
-			t.Error("expected error when API key missing, got nil")
-		}
-	})
-
-	t.Run("errors on invalid JSON response", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("not json"))
-		}))
-		defer srv.Close()
-
-		t.Setenv("GROQ_API_KEY", "test-key")
-		orig := groqAPIURL
-		groqAPIURL = srv.URL
-		t.Cleanup(func() { groqAPIURL = orig })
-
-		if _, err := sendPostRequestGroq("hello"); err == nil {
-			t.Error("expected error for invalid JSON, got nil")
-		}
-	})
 }

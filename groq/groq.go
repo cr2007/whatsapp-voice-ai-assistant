@@ -1,132 +1,75 @@
+// Package groq is a minimal client for the Groq chat completions API.
 package groq
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"strings"
-
-	_ "github.com/joho/godotenv/autoload"
-	"go.mau.fi/whatsmeow"
-	waProto "go.mau.fi/whatsmeow/proto/waE2E"
-	"go.mau.fi/whatsmeow/types/events"
-	"google.golang.org/protobuf/proto"
 )
 
-// groqAPIURL is the Groq chat completions endpoint. Overridable in tests.
-var groqAPIURL = "https://api.groq.com/openai/v1/chat/completions"
+// Model is the Groq model used for every completion.
+const Model = "llama-3.1-8b-instant"
 
-type groqRequest struct {
-	Messages []groqMessage `json:"messages"`
-	Model    string        `json:"model"`
-}
+// apiURL is the Groq chat completions endpoint. Tests override it.
+var apiURL = "https://api.groq.com/openai/v1/chat/completions"
 
-type groqMessage struct {
+type message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-type groqChoice struct {
-	Message groqMessage `json:"message"`
+type request struct {
+	Messages []message `json:"messages"`
+	Model    string    `json:"model"`
 }
 
-type groqResponse struct {
-	Choices []groqChoice `json:"choices"`
+type response struct {
+	Choices []struct {
+		Message message `json:"message"`
+	} `json:"choices"`
 }
 
-var htmlReplacer = strings.NewReplacer(
-	"</p>\n", "\n",
-	"</p>", "\n",
-	"<p>", "",
-	"<ol>", "- ",
-	"</ol>", "\n",
-	"<li>", "- ",
-	"</li>", "\n",
-	"<br>", "\n",
-)
-
-// htmlToWhatsAppFormat converts a subset of HTML tags to WhatsApp text equivalents.
-func htmlToWhatsAppFormat(html string) string {
-	return htmlReplacer.Replace(html)
-}
-
-// SendGroqMessage sends text to Groq and replies with the AI response in the same WhatsApp chat.
-func SendGroqMessage(
-	client *whatsmeow.Client,
-	text string,
-	message *events.Message,
-	contextInfo *waProto.ContextInfo,
-) {
-	fmt.Println("Sending message to Groq:", text)
-
-	response, err := sendPostRequestGroq(text)
-	if err != nil {
-		fmt.Println("Error sending message to Groq:", err)
-		return
-	}
-
-	msg := &waProto.Message{
-		ExtendedTextMessage: &waProto.ExtendedTextMessage{
-			Text: proto.String("Response from Groq:\n" + htmlToWhatsAppFormat(response)),
-			ContextInfo: &waProto.ContextInfo{
-				StanzaID:      proto.String(contextInfo.GetStanzaID()),
-				Participant:   proto.String(contextInfo.GetParticipant()),
-				QuotedMessage: contextInfo.GetQuotedMessage(),
-			},
-		},
-	}
-
-	_, err = client.SendMessage(context.Background(), message.Info.MessageSource.Chat, msg)
-	if err != nil {
-		fmt.Println("Error sending Groq response:", err)
-	} else {
-		fmt.Println("Groq response sent successfully")
-	}
-}
-
-func sendPostRequestGroq(text string) (string, error) {
-	apiKey := os.Getenv("GROQ_API_KEY")
-	if apiKey == "" {
-		return "", fmt.Errorf("GROQ_API_KEY not set")
-	}
-
-	body, err := json.Marshal(groqRequest{
-		Messages: []groqMessage{{Role: "user", Content: text}},
-		Model:    "llama-3.1-8b-instant",
+// Complete sends prompt to Groq as a single user message and returns the
+// content of the first choice.
+func Complete(ctx context.Context, apiKey, prompt string) (string, error) {
+	// Step 1: Encode the request body.
+	body, err := json.Marshal(request{
+		Messages: []message{{Role: "user", Content: prompt}},
+		Model:    Model,
 	})
 	if err != nil {
 		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", groqAPIURL, bytes.NewBuffer(body))
+	// Step 2: Build the authenticated request.
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
+	// Step 3: Send the request and reject non-200 replies.
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status: %s", resp.Status)
 	}
 
-	var result groqResponse
-	if err := json.Unmarshal(respBody, &result); err != nil {
+	// Step 4: Decode the reply and return the first choice.
+	var result response
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", fmt.Errorf("parse response: %w", err)
 	}
-
 	if len(result.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+		return "", errors.New("no choices in response")
 	}
 
 	return result.Choices[0].Message.Content, nil
