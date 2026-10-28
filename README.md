@@ -66,10 +66,10 @@ A microservices-based WhatsApp bot that transcribes voice messages and audio fil
 ## Features
 
 - Transcribes WhatsApp voice notes **and** regular audio files
-- Two trigger modes — transcribe-only, or transcribe and send to Groq for an AI response
+- Two trigger modes: transcribe only, or transcribe and send to Groq for an AI response
 - Early validation: replies with a usage hint if the quoted message is not audio
 - Configurable transcription server URL and message prefix
-- No GCC required — uses a pure-Go SQLite driver (`modernc.org/sqlite`)
+- No GCC required. Uses a pure-Go SQLite driver (`modernc.org/sqlite`)
 
 ## Technologies Used
 
@@ -77,9 +77,9 @@ A microservices-based WhatsApp bot that transcribes voice messages and audio fil
 - Python
 - [FastAPI](https://fastapi.tiangolo.com) + [Uvicorn](https://www.uvicorn.org)
 - SQLite (via `modernc.org/sqlite` - no CGO)
-- [whatsmeow](https://github.com/tulir/whatsmeow) — unofficial WhatsApp multi-device library
-- [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper) — local speech recognition
-- [Groq API](https://console.groq.com) — fast LLM inference
+- [whatsmeow](https://github.com/tulir/whatsmeow): unofficial WhatsApp multi-device library
+- [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper): local speech recognition
+- [Groq API](https://console.groq.com): fast LLM inference
 
 | ![Overall App Logic Flow](./images/Logic-Flow.png) | ![System Architecture](./images/Overall-System-Architecture.png) |
 | -------------------------------------------------- | ---------------------------------------------------------------- |
@@ -88,7 +88,7 @@ A microservices-based WhatsApp bot that transcribes voice messages and audio fil
 
 ### Prerequisites
 
-- [Go 1.25+](https://go.dev)
+- [Go 1.26+](https://go.dev)
 - [Python 3.x](https://python.org) with [uv](https://docs.astral.sh/uv)
 - A Groq API key from [console.groq.com/keys](https://console.groq.com/keys)
 
@@ -103,7 +103,7 @@ Copy `sample.env` to `.env` and fill in your values:
 
 ```env
 GROQ_API_KEY=your_key_here
-TRANSCRIBE_URL=http://<flask-server-ip>:5000/transcribe
+TRANSCRIBE_URL=http://<transcription-server-ip>:5000/transcribe
 ```
 
 | Variable | Required | Description |
@@ -114,7 +114,7 @@ TRANSCRIBE_URL=http://<flask-server-ip>:5000/transcribe
 ### Docker Compose (recommended)
 
 The easiest way to run both services together. Only `GROQ_API_KEY` needs to
-be set — `TRANSCRIBE_URL` is wired automatically via Docker's internal network.
+be set. `TRANSCRIBE_URL` is wired automatically via Docker's internal network.
 
 1. Copy `sample.env` to `.env` and add your Groq API key:
 
@@ -226,32 +226,34 @@ Defaults to `*Transcript:*\n> ` (bold label with a block-quote indent).
 | Setting | How to change |
 |---------|---------------|
 | Transcription server URL | Set `TRANSCRIBE_URL` in `.env` |
-| Groq AI model | Edit the `Model` field in `groq/groq.go` |
+| Groq AI model | Edit the `Model` constant in `groq/groq.go` |
 | Whisper model size | Edit `model_name` in `main.py` (default: `medium.en`) |
 | Transcription reply prefix | Pass `--message-head` flag at startup |
 
 ## Testing
 
-Run the full test suite:
+Run the Go tests:
 
 ```shell
 go test ./...
 ```
 
-For verbose output:
+Run the Python tests:
 
 ```shell
-go test ./... -v
+uv run pytest
 ```
 
-18 tests are included across two packages:
-
-| Test | Package | Cases |
-|------|---------|-------|
-| `TestParseTrigger` | `main` | 9 - trigger command parsing edge cases |
-| `TestGetTranscription` | `main` | 4 - HTTP client against a local test server |
-| `TestHtmlToWhatsAppFormat` | `groq` | 10 - HTML-to-WhatsApp text conversion |
-| `TestSendPostRequestGroq` | `groq` | 4 - Groq API client against a local test server |
+| Test | Package | Covers |
+|------|---------|--------|
+| `TestHandleMessage` | `main` | Full reply flow with a fake WhatsApp client: usage hints, transcript edit, Groq reply |
+| `TestHandleEventRepeatedDisconnect` | `main` | Regression: repeated disconnects do not panic |
+| `TestParseTrigger` | `main` | Trigger command parsing |
+| `TestHTMLToWhatsApp` | `main` | HTML-to-WhatsApp text conversion |
+| `TestTranscribe` | `transcription` | Transcription client against a local test server |
+| `TestComplete` | `groq` | Groq client against a local test server |
+| `test_main.py` | Python | `/transcribe` endpoint |
+| `test_transcribe.py` | Python | Faster-Whisper wrapper |
 
 All tests run without network access or external services.
 
